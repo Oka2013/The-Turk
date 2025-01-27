@@ -1,3 +1,10 @@
+/*
+Most of the code is written by me. 
+However the - '0' at the convert notation function and
+the memcpy(movements, Piece_Movements[board[src]->piece->type], 8 * sizeof(int)) at the can_move function 
+was written after a correction copilot made.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
