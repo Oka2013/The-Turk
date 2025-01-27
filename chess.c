@@ -103,7 +103,7 @@ struct Square** create_board(struct Square** board) {
 }
 
 int can_move(struct Square** board, int src, int dest) {
-    if (!board[src]->piece || (board[dest]->piece && board[src]->piece->color == board[dest]->piece->color)) {S
+    if (!board[src]->piece || (board[dest]->piece && board[src]->piece->color == board[dest]->piece->color)) {
         return 0;
     }
 
