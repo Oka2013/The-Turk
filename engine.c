@@ -15,29 +15,28 @@ int Piece_Scores[6] = {100, 300, 350, 500, 900, 999999999};
 int Piece_MovePowers[6] = {1, 1, EDGE_LEN, EDGE_LEN, EDGE_LEN, 1};
 
 int Piece_Movements[6][8] = {{
-
+    // Pawn
     EDGE_LEN}
     , {
-
+    // Knight
     2 + EDGE_LEN, 2 - EDGE_LEN,
     -2 + EDGE_LEN, -2 - EDGE_LEN,
     EDGE_LEN * 2 + 1, EDGE_LEN * 2 - 1,
     -EDGE_LEN * 2 + 1, -EDGE_LEN * 2 - 1
     }, {
-
+    // Bishop
     EDGE_LEN + 1, EDGE_LEN - 1, 
     -EDGE_LEN + 1, -EDGE_LEN - 1}, {
-
-    1
-    -1,
+    // Rook
+    1, -1,
     EDGE_LEN,
     -EDGE_LEN}, {
-
+    // Queen
     1, -1,
     EDGE_LEN, -EDGE_LEN, 
     EDGE_LEN + 1, EDGE_LEN - 1, 
     -EDGE_LEN + 1, -EDGE_LEN - 1}, {
-
+    // King
     1, -1,
     EDGE_LEN, -EDGE_LEN, 
     EDGE_LEN + 1, EDGE_LEN - 1, 
@@ -107,8 +106,10 @@ int can_move(struct Square** board, int src, int dest) {
         return 0;
     }
 
-    int extra = 0;
-    int movements[8];
+    int* move_powers = (int*)calloc(6, sizeof(int));
+    int* movements = (int*)calloc(8, sizeof(int));
+
+    memcpy(move_powers, Piece_MovePowers, 6 * sizeof(int));
     memcpy(movements, Piece_Movements[board[src]->piece->type], 8 * sizeof(int));
 
     if (board[src]->piece->type == Pawn) { 
@@ -119,17 +120,42 @@ int can_move(struct Square** board, int src, int dest) {
         } 
 
         if (EDGE_LEN - src / EDGE_LEN - 1 == board[src]->piece->color * 5 + 1) {
-            extra = 1;
+            move_powers[0] = 2;
         }
     }
 
-    for (int j = 1; j <= Piece_MovePowers[board[src]->piece->type] + extra; j++) {
+    if (board[src]->piece->type == King) {
+        if (src + 2 == dest && board[src + 3]->piece->type == Rook && board[src + 3]->piece->color == board[src]->piece->color) {
+            move_powers[5] = 2;
+        }
+    }
+
+    for (int j = 1; j <= move_powers[board[src]->piece->type]; j++) {
         for (int i = 0; i < 8; i++) {
             if (!movements[i]) {
                 continue;
             }
 
             if (src + movements[i] * j == dest) {
+                if (move_powers[5] == 2) {
+                    board[src + 3]->piece->square = board[src + 1];
+                    board[src + 1]->piece = board[src + 3]->piece;
+                    board[src + 3]->piece = NULL;
+                }
+
+                int temp = movements[i] > 0 ? movements[i] - EDGE_LEN : movements[i] + EDGE_LEN;
+                if (temp != 0) {
+                    if (temp > 0 && src % EDGE_LEN <= dest % EDGE_LEN) {
+                        return 0;
+                    }
+                    if (temp < 0 && src % EDGE_LEN >= dest % EDGE_LEN) {
+                        return 0;
+                    }
+                }
+
+                free(movements);
+                free(move_powers);
+
                 return 1;
             }
 
@@ -142,6 +168,9 @@ int can_move(struct Square** board, int src, int dest) {
             }
         }
     }
+
+    free(movements);
+    free(move_powers);
 
     return 0;
 }
@@ -177,6 +206,7 @@ int find_index(char* arr, char target) {
     }
     return -1;
 }
+
 struct Square** set_board_position(struct Square** board, char* fen) {
     int i = 0;
     int j = 0;
@@ -203,7 +233,8 @@ int main() {
     struct Square** board = (struct Square**)malloc(EDGE_LEN * EDGE_LEN * sizeof(struct Square*));
     board = create_board(board);
 
-    board = set_board_position(board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
+    // board = set_board_position(board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
+    board = set_board_position(board, "rnbqkbnr/pppppppp/8/8/2B1P3/5N2/PPPP1PPP/RNBQK2R");
 
     while (1) {
         char* src;
