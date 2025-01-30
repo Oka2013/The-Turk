@@ -10,7 +10,7 @@ was written after a correction copilot made.
 #include <string.h>
 #define EDGE_LEN 8
 
-int Piece_Scores[6] = {100, 300, 350, 500, 900, 999999999};
+// int Piece_Scores[6] = {100, 300, 350, 500, 900, 999999999};
 
 int Piece_MovePowers[6] = {1, 1, EDGE_LEN, EDGE_LEN, EDGE_LEN, 1};
 
@@ -60,6 +60,7 @@ enum Piece_Type {
 };
 
 struct Piece {
+    int last_move;
     enum Piece_Color color;
     enum Piece_Type type;
     struct Square* square;
@@ -71,6 +72,10 @@ struct Square {
     struct Piece* piece;
 };
 
+int move = 1;
+int is_move_legal = 0;
+enum Piece_Color turn = White;
+
 struct Piece* new_piece(enum Piece_Type type, enum Piece_Color color, struct Square* square) {
     struct Piece* new_piece = (struct Piece*)malloc(sizeof(struct Piece));
 
@@ -78,6 +83,8 @@ struct Piece* new_piece(enum Piece_Type type, enum Piece_Color color, struct Squ
     new_piece->color = color;
 
     new_piece->square = square;
+
+    new_piece->last_move = 0;
 
     return new_piece;
 }
@@ -102,10 +109,19 @@ struct Square** create_board(struct Square** board) {
 }
 
 int can_move(struct Square** board, int src, int dest) {
-    if (!board[src]->piece || (board[dest]->piece && board[src]->piece->color == board[dest]->piece->color)) {
+    if (src == dest) {
+        return 0;
+    } else if (0 > dest || dest >= EDGE_LEN * EDGE_LEN) {
+        return 0;
+    } else if (!board[src]->piece) {
+        return 0;
+    } else if ((board[dest]->piece && board[src]->piece->color == board[dest]->piece->color)) {
+        return 0;
+    } else if (board[src]->piece->color != turn) {
         return 0;
     }
 
+    int temp;
     int* move_powers = (int*)calloc(6, sizeof(int));
     int* movements = (int*)calloc(8, sizeof(int));
 
@@ -118,15 +134,26 @@ int can_move(struct Square** board, int src, int dest) {
         if (board[dest]->piece) {
             return board[src + movements[0] + 1] == board[dest] || board[src + movements[0] - 1] == board[dest];
         } 
-
-        if (EDGE_LEN - src / EDGE_LEN - 1 == board[src]->piece->color * 5 + 1) {
+        else if (EDGE_LEN - src / EDGE_LEN - 1 == board[src]->piece->color * 5 + 1) {
             move_powers[0] = 2;
         }
     }
 
+    int rook_distance = 3;
     if (board[src]->piece->type == King) {
-        if (src + 2 == dest && board[src + 3]->piece->type == Rook && board[src + 3]->piece->color == board[src]->piece->color) {
-            move_powers[5] = 2;
+        if (src + 2 == dest) { 
+            if(board[src + 3]->piece->type == Rook && board[src + 3]->piece->last_move == 0 && board[src]->piece->last_move == 0) {
+                move_powers[5] = 2;
+            } else {
+                return 0;
+            }
+        } else if (src - 2 == dest ) {
+            if (board[src - 4]->piece->type == Rook && board[src - 4]->piece->last_move == 0 && board[src]->piece->last_move == 0) {
+                move_powers[5] = 2;
+                rook_distance = -4;
+            }  else {
+                return 0;
+            }
         }
     }
 
@@ -137,18 +164,28 @@ int can_move(struct Square** board, int src, int dest) {
             }
 
             if (src + movements[i] * j == dest) {
+
                 if (move_powers[5] == 2) {
-                    board[src + 3]->piece->square = board[src + 1];
-                    board[src + 1]->piece = board[src + 3]->piece;
-                    board[src + 3]->piece = NULL;
+                    board[src + rook_distance]->piece->last_move = move;
+                    board[src + (rook_distance > 0 ? 1 : -1)]->piece = board[src + rook_distance]->piece;
+                    board[src + rook_distance]->piece = NULL;
                 }
 
-                int temp = movements[i] > 0 ? movements[i] - EDGE_LEN : movements[i] + EDGE_LEN;
+                if (abs(movements[i]) > 1) {
+                    if (abs(movements[i]) > 9) {
+                        temp = movements[i] > 0 ? (movements[i] - EDGE_LEN * 2) : (movements[i] + EDGE_LEN * 2);
+                    } else {
+                        temp = movements[i] > 0 ? (movements[i] - EDGE_LEN) : (movements[i] + EDGE_LEN);
+                    }
+                } else {
+                    temp = movements[i];
+                }
+
                 if (temp != 0) {
-                    if (temp > 0 && src % EDGE_LEN <= dest % EDGE_LEN) {
+                    if (temp > 0 && (src % EDGE_LEN >= dest % EDGE_LEN)) {
                         return 0;
                     }
-                    if (temp < 0 && src % EDGE_LEN >= dest % EDGE_LEN) {
+                    if (temp < 0 && (src % EDGE_LEN <= dest % EDGE_LEN)) {
                         return 0;
                     }
                 }
@@ -177,8 +214,13 @@ int can_move(struct Square** board, int src, int dest) {
 
 struct Square** move_piece(struct Square** board, int src, int dest) {
     if (can_move(board, src, dest)) {
+        board[src]->piece->last_move = move;
         board[dest]->piece = board[src]->piece;
         board[src]->piece = NULL;
+        is_move_legal = 1;
+    } else {
+        printf("\nIllegal move!\n\n");
+        is_move_legal = 0;
     }
 
     return board;
@@ -233,8 +275,9 @@ int main() {
     struct Square** board = (struct Square**)malloc(EDGE_LEN * EDGE_LEN * sizeof(struct Square*));
     board = create_board(board);
 
-    // board = set_board_position(board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
-    board = set_board_position(board, "rnbqkbnr/pppppppp/8/8/2B1P3/5N2/PPPP1PPP/RNBQK2R");
+    board = set_board_position(board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
+    //board = set_board_position(board, "rnbqkbnr/pppppppp/8/8/2B1P3/5N2/PPPP1PPP/RNBQK2R");
+    //board = set_board_position(board, "rnbqkbnr/pppppppp/8/8/3P1B2/2NQ4/PPP1PPPP/R3KBNR");
 
     while (1) {
         char* src;
@@ -246,6 +289,11 @@ int main() {
         move_piece(board, convert_notation(src), convert_notation(dest));
     
         draw_board(board);
+
+        if (is_move_legal) {
+            turn = !turn;
+            move++;
+        }
     }
     
     return 0;
