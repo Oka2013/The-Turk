@@ -280,8 +280,8 @@ int main() {
     //board = set_board_position(board, "rnbqkbnr/pppppppp/8/8/3P1B2/2NQ4/PPP1PPPP/R3KBNR");
 
     while (1) {
-        char* src;
-        char* dest;
+        char* src = (char*)malloc(2 * sizeof(char));
+        char* dest = (char*)malloc(2 * sizeof(char));
 
         scanf("%s", src);
         scanf("%s", dest);
